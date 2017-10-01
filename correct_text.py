@@ -123,7 +123,8 @@ def create_model(session, forward_only, model_path, config=TestConfig()):
         forward_only=forward_only,
         config=config)
     ckpt = tf.train.get_checkpoint_state(model_path)
-    if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+    print(ckpt.model_checkpoint_path)
+    if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path + '.meta'):
         print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
         model.saver.restore(session, ckpt.model_checkpoint_path)
     else:

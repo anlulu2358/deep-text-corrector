@@ -88,7 +88,7 @@ class TextCorrectorModel(object):
                                                np.zeros(self.target_vocab_size),
                                                shape=[self.target_vocab_size],
                                                dtype=tf.float32)
-        batched_corrective_tokens = tf.pack(
+        batched_corrective_tokens = tf.stack(
             [corrective_tokens_tensor] * self.batch_size)
         self.batch_corrective_tokens_mask = batch_corrective_tokens_mask = \
             tf.placeholder(
@@ -111,9 +111,9 @@ class TextCorrectorModel(object):
 
             output_projection = (w, b)
 
-            def sampled_loss(inputs, labels):
+            def sampled_loss(labels, logits):
                 labels = tf.reshape(labels, [-1, 1])
-                return tf.nn.sampled_softmax_loss(w_t, b, inputs, labels,
+                return tf.nn.sampled_softmax_loss(w_t, b, labels, logits,
                                                   num_samples,
                                                   self.target_vocab_size)
             softmax_loss_function = sampled_loss
@@ -167,7 +167,7 @@ class TextCorrectorModel(object):
 
         # Training outputs and losses.
         if forward_only:
-            self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
+            self.outputs, self.losses = tf.contrib.legacy_seq2seq.model_with_buckets(
                 self.encoder_inputs, self.decoder_inputs, targets,
                 self.target_weights, buckets,
                 lambda x, y: seq2seq_f(x, y, True),
@@ -185,7 +185,7 @@ class TextCorrectorModel(object):
                                                      input_bias)
                         for output in self.outputs[b]]
         else:
-            self.outputs, self.losses = tf.nn.seq2seq.model_with_buckets(
+            self.outputs, self.losses = tf.contrib.legacy_seq2seq.model_with_buckets(
                 self.encoder_inputs, self.decoder_inputs, targets,
                 self.target_weights, buckets,
                 lambda x, y: seq2seq_f(x, y, False),
@@ -209,10 +209,10 @@ class TextCorrectorModel(object):
                     zip(clipped_gradients, params),
                     global_step=self.global_step))
 
-        self.saver = tf.train.Saver(tf.all_variables())
+        self.saver = tf.train.Saver(tf.global_variables())
 
     def build_input_bias(self, encoder_inputs, batch_corrective_tokens_mask):
-        packed_one_hot_inputs = tf.one_hot(indices=tf.pack(
+        packed_one_hot_inputs = tf.one_hot(indices=tf.stack(
             encoder_inputs, axis=1), depth=self.target_vocab_size)
         return tf.maximum(batch_corrective_tokens_mask,
                           tf.reduce_max(packed_one_hot_inputs,
@@ -374,7 +374,7 @@ def project_and_apply_input_bias(logits, output_projection, input_bias):
     # Apply input bias, which is a mask of shape [batch, vocab len]
     # where each token from the input in addition to all "corrective"
     # tokens are set to 1.0.
-    return tf.mul(probs, input_bias)
+    return tf.multiply(probs, input_bias)
 
 
 def apply_input_bias_and_extract_argmax_fn_factory(input_bias):
